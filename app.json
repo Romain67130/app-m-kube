@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "MKUBE Planning",
+    "slug": "mkube-planning",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mkube.planning"
+    },
+    "android": {
+      "package": "com.mkube.planning"
+    },
+    "plugins": []
+  }
+}
