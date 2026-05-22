@@ -5,7 +5,7 @@ Application de gestion Kubernetes.
 ## Pré-requis
 
 - kubectl configuré
-- Acces a un cluster Kubernetes
+- Accès à un cluster Kubernetes
 
 ## Installation
 
@@ -16,4 +16,4 @@ cd app-m-kube
 
 ## Utilisation
 
-Instructions a venir.
+Instructions à venir.
