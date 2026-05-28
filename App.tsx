@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Image, ActivityIndicator, StyleSheet, Text, ScrollView } from 'react-native';
+import { View, Image, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -30,14 +30,13 @@ export default function App() {
   if (error) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.errorContainer}>
-          <Text style={styles.errorTitle}>⚠ Erreur de démarrage</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>{'⚠ ERREUR DE DÉMARRAGE'}</Text>
           <Text style={styles.errorMsg}>{error}</Text>
           <Text style={styles.errorHint}>
-            Copiez ce message et envoyez-le pour corriger le problème.{'\n'}
-            Ou exécutez : npx expo start --clear
+            {'Copiez ce texte et envoyez-le.\nOu : npx expo start --clear'}
           </Text>
-        </ScrollView>
+        </View>
       </GestureHandlerRootView>
     );
   }
@@ -48,6 +47,7 @@ export default function App() {
         <View style={styles.loading}>
           <Image source={require('./assets/logo.png')} style={styles.logo} resizeMode="contain" />
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 24 }} />
+          <Text style={styles.loadingText}>Chargement…</Text>
         </View>
       </GestureHandlerRootView>
     );
@@ -77,30 +77,34 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
   },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
   errorContainer: {
     flex: 1,
-    padding: 24,
+    padding: 32,
     justifyContent: 'center',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#C0392B',
   },
   errorTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#C0392B',
-    marginBottom: 16,
+    color: '#fff',
+    marginBottom: 20,
   },
   errorMsg: {
-    fontSize: 13,
-    fontFamily: 'monospace',
-    color: '#333',
-    backgroundColor: '#FDECEA',
-    padding: 12,
+    fontSize: 14,
+    color: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 14,
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   errorHint: {
     fontSize: 13,
-    color: '#666',
-    lineHeight: 20,
+    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 22,
   },
 });
