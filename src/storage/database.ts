@@ -26,8 +26,13 @@ let cache: DB = {
 export async function initDatabase(): Promise<void> {
   await Promise.all(
     KEYS.map(async (key) => {
-      const raw = await AsyncStorage.getItem(`mkube_${key}`);
-      if (raw) (cache as any)[key] = JSON.parse(raw);
+      try {
+        const raw = await AsyncStorage.getItem(`mkube_${key}`);
+        if (raw) (cache as any)[key] = JSON.parse(raw);
+      } catch (e) {
+        // Donnée corrompue : on ignore et repart de zéro pour cette clé
+        console.warn(`[DB] Erreur chargement clé ${key}:`, e);
+      }
     })
   );
 }

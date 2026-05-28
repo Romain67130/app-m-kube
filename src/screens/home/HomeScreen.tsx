@@ -79,6 +79,7 @@ export function HomeScreen({ navigation }: any) {
         source={require('../../../assets/bg.png')}
         style={styles.grid}
         resizeMode="cover"
+        onError={() => {}}
       >
         {/* Voile semi-transparent pour lisibilité */}
         <View style={styles.gridOverlay} />
