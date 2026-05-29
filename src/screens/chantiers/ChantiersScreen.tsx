@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   filterTextActive: { color: '#fff' },
   list: { padding: 12 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-  nom: { fontSize: 15, fontWeight: '700', color: COLORS.text, flex: 1, marginRight: 8 },
+  nom: { fontSize: 18, fontWeight: '800', color: COLORS.text, flex: 1, marginRight: 8 },
   clientLine: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   client: { fontSize: 13, color: COLORS.secondary, fontWeight: '600' },
   reference: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, backgroundColor: COLORS.border, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
