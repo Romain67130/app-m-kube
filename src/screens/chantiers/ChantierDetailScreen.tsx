@@ -268,6 +268,12 @@ export function ChantierDetailScreen({ route, navigation }: any) {
                   </View>
                   {/* Barre de progression */}
                   <ProgressBar value={pct} height={10} />
+                  {/* Commentaire du groupe */}
+                  {group.members.find((m) => m.notes) ? (
+                    <Text style={styles.intAvanNotes}>
+                      {group.members.find((m) => m.notes)!.notes}
+                    </Text>
+                  ) : null}
                   {/* Édition inline */}
                   {isEditing && (
                     <View style={styles.intAvanEdit}>
@@ -516,6 +522,7 @@ const styles = StyleSheet.create({
   intAvanCollab: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   intAvanNom: { fontSize: 13, color: COLORS.secondary, fontWeight: '700' },
   intAvanDates: { fontSize: 11, color: COLORS.textSecondary, marginTop: 3 },
+  intAvanNotes: { fontSize: 12, color: COLORS.textSecondary, fontStyle: 'italic', marginTop: 4, lineHeight: 17 },
   intAvanEditBtn: { padding: 4, marginLeft: 8 },
   intAvanEdit: { marginTop: 8, gap: 8, backgroundColor: COLORS.background, borderRadius: 8, padding: 10 },
   collabRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10 },
