@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getDB, saveDB } from './database';
 import { ChantierDocument } from '../types';
 import { format } from 'date-fns';
