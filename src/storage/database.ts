@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Collaborateur, Chantier, Absence, Horaire, AvancementUpdate, Intervention } from '../types';
+import { Collaborateur, Chantier, Absence, Horaire, AvancementUpdate, Intervention, ChantierDocument } from '../types';
 
 export interface DB {
   collaborateurs: Collaborateur[];
@@ -9,18 +9,19 @@ export interface DB {
   avancement_updates: AvancementUpdate[];
   chantier_collaborateurs: { chantierId: string; collaborateurId: string }[];
   interventions: Intervention[];
+  documents: ChantierDocument[];
   seeded: boolean;
 }
 
 const KEYS: (keyof DB)[] = [
   'collaborateurs', 'chantiers', 'absences', 'horaires',
-  'avancement_updates', 'chantier_collaborateurs', 'interventions', 'seeded',
+  'avancement_updates', 'chantier_collaborateurs', 'interventions', 'documents', 'seeded',
 ];
 
 let cache: DB = {
   collaborateurs: [], chantiers: [], absences: [],
   horaires: [], avancement_updates: [], chantier_collaborateurs: [],
-  interventions: [], seeded: false,
+  interventions: [], documents: [], seeded: false,
 };
 
 export async function initDatabase(): Promise<void> {

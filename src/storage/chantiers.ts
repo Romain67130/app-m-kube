@@ -66,11 +66,17 @@ export async function setCollaborateursForChantier(chantierId: string, collabora
 }
 
 export async function deleteChantier(id: string): Promise<void> {
+  const { deleteDocumentsForChantier } = await import('./documents');
   const db = getDB();
   db.chantiers = db.chantiers.filter((c) => c.id !== id);
   db.chantier_collaborateurs = db.chantier_collaborateurs.filter((cc) => cc.chantierId !== id);
   db.avancement_updates = db.avancement_updates.filter((u) => u.chantierId !== id);
-  await Promise.all([saveDB('chantiers'), saveDB('chantier_collaborateurs'), saveDB('avancement_updates')]);
+  db.interventions = db.interventions.filter((i) => i.chantierId !== id);
+  await Promise.all([
+    saveDB('chantiers'), saveDB('chantier_collaborateurs'),
+    saveDB('avancement_updates'), saveDB('interventions'),
+    deleteDocumentsForChantier(id),
+  ]);
 }
 
 export async function getChantiersForCollaborateur(collaborateurId: string, dateDebut: string, dateFin: string): Promise<Chantier[]> {

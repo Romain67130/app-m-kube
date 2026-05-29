@@ -70,6 +70,16 @@ export interface Intervention {
   notes: string;
 }
 
+export interface ChantierDocument {
+  id: string;
+  chantierId: string;
+  nom: string;
+  uri: string;
+  mimeType: string;
+  taille?: number;
+  createdAt: string;
+}
+
 export interface PlanningEntry {
   date: string;
   collaborateur: Collaborateur;
