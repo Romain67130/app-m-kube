@@ -18,7 +18,9 @@ export function ChantierFormScreen({ route, navigation }: any) {
   const isEdit = !!existing;
 
   const [nom, setNom] = useState(existing?.nom ?? '');
+  const [referenceChantier, setReferenceChantier] = useState(existing?.referenceChantier ?? '');
   const [client, setClient] = useState(existing?.client ?? '');
+  const [telephoneClient, setTelephoneClient] = useState(existing?.telephoneClient ?? '');
   const [adresse, setAdresse] = useState(existing?.adresse ?? '');
   const [statut, setStatut] = useState(existing?.statut ?? 'Planifié');
   const [notes, setNotes] = useState(existing?.notes ?? '');
@@ -37,10 +39,21 @@ export function ChantierFormScreen({ route, navigation }: any) {
       Alert.alert('Erreur', 'La date de fin doit être après la date de début.');
       return;
     }
+    const payload = {
+      nom,
+      client,
+      telephoneClient: telephoneClient.trim() || undefined,
+      referenceChantier: referenceChantier.trim() || undefined,
+      adresse,
+      dateDebut: debutISO,
+      dateFin: finISO,
+      statut,
+      notes,
+    };
     if (isEdit) {
-      await updateChantier(existing.id, { nom, client, adresse, dateDebut: debutISO, dateFin: finISO, statut, notes });
+      await updateChantier(existing.id, payload);
     } else {
-      await createChantier({ nom, client, adresse, dateDebut: debutISO, dateFin: finISO, statut, avancement: 0, notes });
+      await createChantier({ ...payload, avancement: 0 });
     }
     navigation.goBack();
   };
@@ -60,12 +73,32 @@ export function ChantierFormScreen({ route, navigation }: any) {
         returnKeyType="next"
       />
 
+      <Text style={styles.label}>Référence chantier</Text>
+      <TextInput
+        style={styles.input}
+        value={referenceChantier}
+        onChangeText={setReferenceChantier}
+        placeholder="ex: 2025-042, CH-0012…"
+        returnKeyType="next"
+        autoCapitalize="characters"
+      />
+
       <Text style={styles.label}>Client *</Text>
       <TextInput
         style={styles.input}
         value={client}
         onChangeText={setClient}
         placeholder="M. Dupont Jean"
+        returnKeyType="next"
+      />
+
+      <Text style={styles.label}>Téléphone client</Text>
+      <TextInput
+        style={styles.input}
+        value={telephoneClient}
+        onChangeText={setTelephoneClient}
+        placeholder="06 12 34 56 78"
+        keyboardType="phone-pad"
         returnKeyType="next"
       />
 

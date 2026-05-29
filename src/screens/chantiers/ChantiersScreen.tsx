@@ -85,7 +85,12 @@ export function ChantiersScreen({ navigation }: any) {
                   <Text style={styles.nom} numberOfLines={1}>{item.nom}</Text>
                   <Badge label={item.statut} color={STATUS_COLORS[item.statut] ?? COLORS.secondary} size="sm" />
                 </View>
-                <Text style={styles.client}>{item.client}</Text>
+                <View style={styles.clientLine}>
+                  <Text style={styles.client}>{item.client}</Text>
+                  {item.referenceChantier ? (
+                    <Text style={styles.reference}>Réf. {item.referenceChantier}</Text>
+                  ) : null}
+                </View>
                 <Text style={styles.adresse} numberOfLines={1}>{item.adresse}</Text>
                 <View style={styles.dates}>
                   <Ionicons name="calendar-outline" size={13} color={COLORS.textSecondary} />
@@ -153,7 +158,9 @@ const styles = StyleSheet.create({
   list: { padding: 12 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   nom: { fontSize: 15, fontWeight: '700', color: COLORS.text, flex: 1, marginRight: 8 },
-  client: { fontSize: 13, color: COLORS.secondary, fontWeight: '600', marginBottom: 2 },
+  clientLine: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  client: { fontSize: 13, color: COLORS.secondary, fontWeight: '600' },
+  reference: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, backgroundColor: COLORS.border, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   adresse: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 6 },
   dates: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   datesText: { fontSize: 12, color: COLORS.textSecondary },

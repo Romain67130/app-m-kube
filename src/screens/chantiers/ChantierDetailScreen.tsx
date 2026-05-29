@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, TextInput,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, TextInput, Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -190,7 +190,24 @@ export function ChantierDetailScreen({ route, navigation }: any) {
           )}
         </View>
         <Text style={styles.nom}>{chantier.nom}</Text>
-        <Text style={styles.client}>{chantier.client}</Text>
+        {chantier.referenceChantier ? (
+          <View style={styles.refRow}>
+            <Ionicons name="bookmark-outline" size={13} color={COLORS.secondary} />
+            <Text style={styles.refText}>Réf. {chantier.referenceChantier}</Text>
+          </View>
+        ) : null}
+        <View style={styles.clientRow}>
+          <Text style={styles.client}>{chantier.client}</Text>
+          {chantier.telephoneClient ? (
+            <TouchableOpacity
+              style={styles.telBtn}
+              onPress={() => Linking.openURL(`tel:${chantier.telephoneClient}`)}
+            >
+              <Ionicons name="call-outline" size={14} color="#fff" />
+              <Text style={styles.telBtnText}>{chantier.telephoneClient}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View style={styles.adresseRow}>
           <Ionicons name="location-outline" size={14} color={COLORS.textSecondary} />
           <Text style={styles.adresse}>{chantier.adresse}</Text>
@@ -465,7 +482,12 @@ const styles = StyleSheet.create({
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: COLORS.secondary },
   editBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.secondary },
   nom: { fontSize: 20, fontWeight: '800', color: COLORS.text, marginTop: 8 },
+  refRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  refText: { fontSize: 12, fontWeight: '700', color: COLORS.secondary },
+  clientRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 },
   client: { fontSize: 15, color: COLORS.secondary, fontWeight: '600' },
+  telBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.secondary, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  telBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   adresseRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   adresse: { fontSize: 13, color: COLORS.textSecondary, flex: 1 },
   datesRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

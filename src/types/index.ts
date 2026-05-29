@@ -14,6 +14,8 @@ export interface Chantier {
   id: string;
   nom: string;
   client: string;
+  telephoneClient?: string;
+  referenceChantier?: string;
   adresse: string;
   dateDebut: string;
   dateFin: string;
