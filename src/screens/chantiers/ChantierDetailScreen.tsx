@@ -354,8 +354,8 @@ export function ChantierDetailScreen({ route, navigation }: any) {
         })}
       </Card>
 
-      {/* Interventions */}
-      <Card>
+      {/* Interventions — visible admin uniquement */}
+      {isAdmin && <Card>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Interventions</Text>
           {isAdmin && (
@@ -453,7 +453,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
             </View>
           ))
         )}
-      </Card>
+      </Card>}
 
       {/* Supprimer */}
       {isAdmin && (
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   intAvanCollab: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   intAvanNom: { fontSize: 13, color: COLORS.secondary, fontWeight: '700' },
   intAvanDates: { fontSize: 11, color: COLORS.textSecondary, marginTop: 3 },
-  intAvanNotes: { fontSize: 12, color: COLORS.textSecondary, fontStyle: 'italic', marginTop: 4, lineHeight: 17 },
+  intAvanNotes: { fontSize: 12, color: COLORS.danger, fontStyle: 'italic', marginTop: 4, lineHeight: 17 },
   intAvanEditBtn: { padding: 4, marginLeft: 8 },
   intAvanEdit: { marginTop: 8, gap: 8, backgroundColor: COLORS.background, borderRadius: 8, padding: 10 },
   collabRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10 },
