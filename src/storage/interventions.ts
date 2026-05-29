@@ -64,6 +64,10 @@ export async function getChantiersForCollaborateurViaInterventions(
   return db.chantiers.filter((ch) => chantierIds.includes(ch.id) && ch.statut !== 'Annulé');
 }
 
+export function getAllInterventions(): Intervention[] {
+  return getDB().interventions;
+}
+
 export function getInterventionForDay(
   collaborateurId: string,
   chantierId: string,

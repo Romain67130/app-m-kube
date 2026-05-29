@@ -22,35 +22,7 @@ import { Badge } from '../../components/Badge';
 import { ProgressBar } from '../../components/ProgressBar';
 import { DateInput } from '../../components/DateInput';
 
-// ─── Regroupement d'interventions ────────────────────────────────────────────
-type InterventionGroup = {
-  key: string;
-  nom?: string;
-  dateDebut: string;
-  dateFin: string;
-  members: Intervention[];
-  avancement: number;
-};
-
-function groupInterventions(ints: Intervention[]): InterventionGroup[] {
-  const map = new Map<string, Intervention[]>();
-  for (const int of ints) {
-    const key = `${int.nom ?? ''}_${int.dateDebut}_${int.dateFin}`;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(int);
-  }
-  return Array.from(map.entries()).map(([key, members]) => ({
-    key,
-    nom: members[0].nom,
-    dateDebut: members[0].dateDebut,
-    dateFin: members[0].dateFin,
-    members,
-    avancement: Math.round(
-      members.reduce((s, i) => s + (i.avancement ?? 0), 0) / members.length,
-    ),
-  }));
-}
-// ─────────────────────────────────────────────────────────────────────────────
+import { InterventionGroup, groupInterventions } from '../../utils/interventionUtils';
 
 export function ChantierDetailScreen({ route, navigation }: any) {
   const { chantierId } = route.params;

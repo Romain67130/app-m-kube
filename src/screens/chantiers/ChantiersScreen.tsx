@@ -7,7 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { getAllChantiers } from '../../storage/chantiers';
-import { Chantier } from '../../types';
+import { getAllInterventions } from '../../storage/interventions';
+import { Chantier, Intervention } from '../../types';
+import { groupInterventions } from '../../utils/interventionUtils';
 import { COLORS, STATUS_COLORS } from '../../constants/colors';
 import { Card } from '../../components/Card';
 import { Badge } from '../../components/Badge';
@@ -18,12 +20,21 @@ import { useMode } from '../../context/ModeContext';
 export function ChantiersScreen({ navigation }: any) {
   const { isAdmin } = useMode();
   const [chantiers, setChantiers] = useState<Chantier[]>([]);
+  const [intMap, setIntMap] = useState<Map<string, Intervention[]>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const data = await getAllChantiers();
     setChantiers(data);
+    // Construit une map chantierId → interventions
+    const allInts = getAllInterventions();
+    const map = new Map<string, Intervention[]>();
+    for (const int of allInts) {
+      if (!map.has(int.chantierId)) map.set(int.chantierId, []);
+      map.get(int.chantierId)!.push(int);
+    }
+    setIntMap(map);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -64,30 +75,57 @@ export function ChantiersScreen({ navigation }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={styles.list}
         ListEmptyComponent={<EmptyState icon="construct-outline" title="Aucun chantier" />}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigation.navigate('ChantierDetail', { chantierId: item.id })}>
-            <Card>
-              <View style={styles.cardHeader}>
-                <Text style={styles.nom} numberOfLines={1}>{item.nom}</Text>
-                <Badge label={item.statut} color={STATUS_COLORS[item.statut] ?? COLORS.secondary} size="sm" />
-              </View>
-              <Text style={styles.client}>{item.client}</Text>
-              <Text style={styles.adresse} numberOfLines={1}>{item.adresse}</Text>
-              <View style={styles.dates}>
-                <Ionicons name="calendar-outline" size={13} color={COLORS.textSecondary} />
-                <Text style={styles.datesText}>
-                  {format(new Date(item.dateDebut), 'dd MMM', { locale: fr })} →{' '}
-                  {format(new Date(item.dateFin), 'dd MMM yyyy', { locale: fr })}
-                </Text>
-              </View>
-              {item.statut === 'En cours' && (
-                <View style={{ marginTop: 10 }}>
-                  <ProgressBar value={item.avancement} />
+        renderItem={({ item }) => {
+          const ints = intMap.get(item.id) ?? [];
+          const groups = groupInterventions(ints);
+          return (
+            <TouchableOpacity onPress={() => navigation.navigate('ChantierDetail', { chantierId: item.id })}>
+              <Card>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.nom} numberOfLines={1}>{item.nom}</Text>
+                  <Badge label={item.statut} color={STATUS_COLORS[item.statut] ?? COLORS.secondary} size="sm" />
                 </View>
-              )}
-            </Card>
-          </TouchableOpacity>
-        )}
+                <Text style={styles.client}>{item.client}</Text>
+                <Text style={styles.adresse} numberOfLines={1}>{item.adresse}</Text>
+                <View style={styles.dates}>
+                  <Ionicons name="calendar-outline" size={13} color={COLORS.textSecondary} />
+                  <Text style={styles.datesText}>
+                    {format(new Date(item.dateDebut), 'dd MMM', { locale: fr })} →{' '}
+                    {format(new Date(item.dateFin), 'dd MMM yyyy', { locale: fr })}
+                  </Text>
+                </View>
+
+                {/* Avancement par groupe d'interventions */}
+                {groups.length > 0 && (
+                  <View style={styles.avanSection}>
+                    <View style={styles.avanGlobalRow}>
+                      <Text style={styles.avanGlobalLabel}>Avancement global</Text>
+                      <Text style={styles.avanGlobalPct}>{item.avancement}%</Text>
+                    </View>
+                    <ProgressBar value={item.avancement} height={6} showLabel={false} />
+                    <View style={styles.groupList}>
+                      {groups.map((g, idx) => (
+                        <View key={g.key} style={[styles.groupRow, idx > 0 && styles.groupRowBorder]}>
+                          <View style={styles.groupLeft}>
+                            <Text style={styles.groupNom} numberOfLines={1}>
+                              {g.nom ?? format(new Date(g.dateDebut), 'dd MMM', { locale: fr }) + ' → ' + format(new Date(g.dateFin), 'dd MMM', { locale: fr })}
+                            </Text>
+                            <Text style={styles.groupMembres}>
+                              {g.members.length} pers. · {g.avancement}%
+                            </Text>
+                          </View>
+                          <View style={styles.groupBarWrap}>
+                            <ProgressBar value={g.avancement} height={6} showLabel={false} />
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </Card>
+            </TouchableOpacity>
+          );
+        }}
       />
 
       {isAdmin && (
@@ -119,6 +157,18 @@ const styles = StyleSheet.create({
   adresse: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 6 },
   dates: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   datesText: { fontSize: 12, color: COLORS.textSecondary },
+  // Avancement
+  avanSection: { marginTop: 10, gap: 6 },
+  avanGlobalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  avanGlobalLabel: { fontSize: 11, fontWeight: '600', color: COLORS.textSecondary },
+  avanGlobalPct: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
+  groupList: { marginTop: 4, gap: 0 },
+  groupRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, gap: 8 },
+  groupRowBorder: { borderTopWidth: 1, borderTopColor: COLORS.border },
+  groupLeft: { width: 130 },
+  groupNom: { fontSize: 12, fontWeight: '700', color: COLORS.text },
+  groupMembres: { fontSize: 11, color: COLORS.textSecondary, marginTop: 1 },
+  groupBarWrap: { flex: 1 },
   fab: {
     position: 'absolute', right: 20, bottom: 20,
     width: 56, height: 56, borderRadius: 28,
