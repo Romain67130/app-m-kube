@@ -22,6 +22,36 @@ import { Badge } from '../../components/Badge';
 import { ProgressBar } from '../../components/ProgressBar';
 import { DateInput } from '../../components/DateInput';
 
+// ─── Regroupement d'interventions ────────────────────────────────────────────
+type InterventionGroup = {
+  key: string;
+  nom?: string;
+  dateDebut: string;
+  dateFin: string;
+  members: Intervention[];
+  avancement: number;
+};
+
+function groupInterventions(ints: Intervention[]): InterventionGroup[] {
+  const map = new Map<string, Intervention[]>();
+  for (const int of ints) {
+    const key = `${int.nom ?? ''}_${int.dateDebut}_${int.dateFin}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(int);
+  }
+  return Array.from(map.entries()).map(([key, members]) => ({
+    key,
+    nom: members[0].nom,
+    dateDebut: members[0].dateDebut,
+    dateFin: members[0].dateFin,
+    members,
+    avancement: Math.round(
+      members.reduce((s, i) => s + (i.avancement ?? 0), 0) / members.length,
+    ),
+  }));
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function ChantierDetailScreen({ route, navigation }: any) {
   const { chantierId } = route.params;
   const { isAdmin } = useMode();
@@ -32,7 +62,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [notes, setNotes] = useState('');
   const [editingNotes, setEditingNotes] = useState(false);
-  const [editingIntAvancementId, setEditingIntAvancementId] = useState<string | null>(null);
+  const [editingGroupKey, setEditingGroupKey] = useState<string | null>(null);
   const [editIntPct, setEditIntPct] = useState(0);
   const [showAddIntervention, setShowAddIntervention] = useState(false);
   const [intCollabs, setIntCollabs] = useState<string[]>([]);
@@ -71,16 +101,18 @@ export function ChantierDetailScreen({ route, navigation }: any) {
     ]);
   };
 
-  const saveIntAvancement = async () => {
-    if (!editingIntAvancementId) return;
-    await updateIntervention(editingIntAvancementId, { avancement: editIntPct });
-    // Recalcule l'avancement global = moyenne des interventions
+  const saveGroupAvancement = async (group: InterventionGroup) => {
+    // Met à jour chaque membre du groupe avec la même valeur
+    await Promise.all(group.members.map((int) =>
+      updateIntervention(int.id, { avancement: editIntPct }),
+    ));
+    // Recalcule l'avancement global = moyenne de toutes les interventions
     const allInts = await getInterventionsForChantier(chantierId);
     const avg = allInts.length > 0
       ? Math.round(allInts.reduce((sum, i) => sum + (i.avancement ?? 0), 0) / allInts.length)
       : 0;
     await updateChantier(chantierId, { avancement: avg });
-    setEditingIntAvancementId(null);
+    setEditingGroupKey(null);
     load();
   };
 
@@ -209,22 +241,34 @@ export function ChantierDetailScreen({ route, navigation }: any) {
           {interventions.length === 0 ? (
             <Text style={styles.emptyText}>Ajoutez des interventions pour suivre l'avancement</Text>
           ) : (
-            interventions.map((int, idx) => {
-              const pct = int.avancement ?? 0;
-              const isEditing = editingIntAvancementId === int.id;
+            groupInterventions(interventions).map((group, idx) => {
+              const pct = group.avancement;
+              const isEditing = editingGroupKey === group.key;
               return (
-                <View key={int.id} style={[styles.intAvanRow, idx > 0 && styles.intAvanRowBorder]}>
-                  {/* Ligne : nom + % + bouton édition */}
+                <View key={group.key} style={[styles.intAvanRow, idx > 0 && styles.intAvanRowBorder]}>
+                  {/* En-tête : libellé + bouton édition */}
                   <View style={styles.intAvanHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.intAvanCollab}>{getCollabName(int.collaborateurId)}</Text>
-                      {int.nom ? <Text style={styles.intAvanNom}>{int.nom}</Text> : null}
+                      {group.nom
+                        ? <Text style={styles.intAvanNom}>{group.nom}</Text>
+                        : null}
+                      {/* Chips collaborateurs */}
+                      <View style={styles.intAvanCollabRow}>
+                        {group.members.map((m) => (
+                          <View key={m.id} style={styles.intAvanCollabChip}>
+                            <Text style={styles.intAvanCollab}>{getCollabName(m.collaborateurId)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                      <Text style={styles.intAvanDates}>
+                        {format(new Date(group.dateDebut), 'dd MMM', { locale: fr })} → {format(new Date(group.dateFin), 'dd MMM yyyy', { locale: fr })}
+                      </Text>
                     </View>
                     <TouchableOpacity
                       style={styles.intAvanEditBtn}
                       onPress={() => {
-                        if (isEditing) { setEditingIntAvancementId(null); }
-                        else { setEditingIntAvancementId(int.id); setEditIntPct(pct); }
+                        if (isEditing) { setEditingGroupKey(null); }
+                        else { setEditingGroupKey(group.key); setEditIntPct(pct); }
                       }}
                     >
                       <Ionicons name={isEditing ? 'close' : 'pencil-outline'} size={18} color={COLORS.secondary} />
@@ -247,7 +291,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
                           </TouchableOpacity>
                         ))}
                       </View>
-                      <TouchableOpacity style={styles.saveBtn} onPress={saveIntAvancement}>
+                      <TouchableOpacity style={styles.saveBtn} onPress={() => saveGroupAvancement(group)}>
                         <Text style={styles.saveBtnText}>Enregistrer</Text>
                       </TouchableOpacity>
                     </View>
@@ -459,8 +503,11 @@ const styles = StyleSheet.create({
   intAvanRow: { paddingVertical: 10, gap: 6 },
   intAvanRowBorder: { borderTopWidth: 1, borderTopColor: COLORS.border },
   intAvanHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  intAvanCollab: { fontSize: 14, fontWeight: '700', color: COLORS.text },
-  intAvanNom: { fontSize: 12, color: COLORS.secondary, fontWeight: '600', marginTop: 1 },
+  intAvanCollabRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  intAvanCollabChip: { backgroundColor: '#EEF4FF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
+  intAvanCollab: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  intAvanNom: { fontSize: 13, color: COLORS.secondary, fontWeight: '700' },
+  intAvanDates: { fontSize: 11, color: COLORS.textSecondary, marginTop: 3 },
   intAvanEditBtn: { padding: 4, marginLeft: 8 },
   intAvanEdit: { marginTop: 8, gap: 8, backgroundColor: COLORS.background, borderRadius: 8, padding: 10 },
   collabRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10 },
