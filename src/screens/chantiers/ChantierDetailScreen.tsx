@@ -40,6 +40,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
   const [intFinDisplay, setIntFinDisplay] = useState('');
   const [intFinISO, setIntFinISO] = useState('');
   const [editingIntId, setEditingIntId] = useState<string | null>(null);
+  const [intNom, setIntNom] = useState('');
 
   const load = useCallback(async () => {
     const ch = await getChantierById(chantierId);
@@ -94,6 +95,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
   const resetIntForm = () => {
     setIntCollabs([]); setIntDebutDisplay(''); setIntDebutISO('');
     setIntFinDisplay(''); setIntFinISO(''); setEditingIntId(null);
+    setIntNom('');
   };
 
   const startEditIntervention = (int: Intervention) => {
@@ -103,6 +105,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
     setIntDebutISO(int.dateDebut);
     setIntFinDisplay(isoToDisplay(int.dateFin));
     setIntFinISO(int.dateFin);
+    setIntNom(int.nom ?? '');
     setShowAddIntervention(true);
   };
 
@@ -120,11 +123,16 @@ export function ChantierDetailScreen({ route, navigation }: any) {
         collaborateurId: intCollabs[0],
         dateDebut: intDebutISO,
         dateFin: intFinISO,
+        nom: intNom.trim() || undefined,
       });
     } else {
       await Promise.all(
         intCollabs.map((collabId) =>
-          createIntervention({ chantierId, collaborateurId: collabId, dateDebut: intDebutISO, dateFin: intFinISO, notes: '' })
+          createIntervention({
+            chantierId, collaborateurId: collabId,
+            dateDebut: intDebutISO, dateFin: intFinISO,
+            nom: intNom.trim() || undefined, notes: '',
+          })
         )
       );
     }
@@ -277,6 +285,14 @@ export function ChantierDetailScreen({ route, navigation }: any) {
               value={intFinDisplay}
               onChange={(formatted, iso) => { setIntFinDisplay(formatted); setIntFinISO(iso); }}
             />
+            <Text style={styles.formLabel}>Libellé (optionnel)</Text>
+            <TextInput
+              style={styles.formInput}
+              value={intNom}
+              onChangeText={setIntNom}
+              placeholder="ex: Pose des pannes, Finitions…"
+              returnKeyType="done"
+            />
             <TouchableOpacity style={styles.addBtn} onPress={saveIntervention}>
               <Text style={styles.addBtnText}>{editingIntId ? 'Modifier l\'intervention' : 'Ajouter l\'intervention'}</Text>
             </TouchableOpacity>
@@ -290,6 +306,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
             <View key={int.id} style={[styles.intRow, editingIntId === int.id && styles.intRowEditing]}>
               <View style={styles.intLeft}>
                 <Text style={styles.intCollab}>{getCollabName(int.collaborateurId)}</Text>
+                {int.nom ? <Text style={styles.intNomText}>{int.nom}</Text> : null}
                 <Text style={styles.intDates}>
                   {format(new Date(int.dateDebut), 'dd MMM', { locale: fr })} → {format(new Date(int.dateFin), 'dd MMM yyyy', { locale: fr })}
                 </Text>
@@ -382,6 +399,7 @@ const styles = StyleSheet.create({
   intRowEditing: { backgroundColor: '#EEF4FF', marginHorizontal: -4, paddingHorizontal: 4, borderRadius: 8 },
   intLeft: { flex: 1 },
   intCollab: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  intNomText: { fontSize: 13, fontWeight: '600', color: COLORS.secondary, marginTop: 2 },
   intDates: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   intActions: { flexDirection: 'row', gap: 4 },
   intActionBtn: { padding: 4 },

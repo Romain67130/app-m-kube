@@ -63,6 +63,7 @@ export interface Intervention {
   collaborateurId: string;
   dateDebut: string;
   dateFin: string;
+  nom?: string;
   notes: string;
 }
 

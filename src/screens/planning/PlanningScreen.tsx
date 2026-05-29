@@ -7,14 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   format, addWeeks, subWeeks, startOfWeek, addDays, isToday,
   addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval,
-  isSameMonth,
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { getAllCollaborateurs } from '../../storage/collaborateurs';
 import { getAbsencesForPeriod } from '../../storage/absences';
 import { getChantiersForCollaborateurViaInterventions, getInterventionForDay } from '../../storage/interventions';
-import { Collaborateur, Chantier, Absence } from '../../types';
-import { COLORS, STATUS_COLORS, ABSENCE_COLORS } from '../../constants/colors';
+import { Collaborateur, Chantier, Absence, Intervention } from '../../types';
+import { COLORS, ABSENCE_COLORS } from '../../constants/colors';
 
 type ViewMode = 'week' | 'month' | '2months';
 
@@ -29,6 +28,19 @@ const COL_W: Record<ViewMode, number> = {
 };
 
 const JOURS_COURT = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+// Palette de 10 couleurs distinctes pour identifier chaque chantier
+const CHANTIER_PALETTE = [
+  '#1565C0', '#2E7D32', '#6A1B9A', '#BF360C', '#00695C',
+  '#AD1457', '#4527A0', '#E65100', '#00838F', '#558B2F',
+];
+const getChantierColor = (chantierId: string): string => {
+  let h = 5381;
+  for (let i = 0; i < chantierId.length; i++) {
+    h = ((h << 5) + h) ^ chantierId.charCodeAt(i);
+  }
+  return CHANTIER_PALETTE[Math.abs(h) % CHANTIER_PALETTE.length];
+};
 
 export function PlanningScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
@@ -98,11 +110,14 @@ export function PlanningScreen() {
       return a.collaborateurId === collabId && a.dateDebut <= d && a.dateFin >= d;
     });
 
-  const getChantiersForDay = (collabId: string, date: Date): Chantier[] => {
+  const getChantiersWithInt = (collabId: string, date: Date): { ch: Chantier; int: Intervention }[] => {
     const d = format(date, 'yyyy-MM-dd');
-    return (chantiersByCollab.get(collabId) ?? []).filter(
-      (ch) => getInterventionForDay(collabId, ch.id, d) !== undefined
-    );
+    return (chantiersByCollab.get(collabId) ?? [])
+      .reduce<{ ch: Chantier; int: Intervention }[]>((acc, ch) => {
+        const int = getInterventionForDay(collabId, ch.id, d);
+        if (int) acc.push({ ch, int });
+        return acc;
+      }, []);
   };
 
   const initiales = (c: Collaborateur) => `${c.prenom[0]}${c.nom[0]}`.toUpperCase();
@@ -120,7 +135,7 @@ export function PlanningScreen() {
     const weekend = dayOfWeek === 0 || dayOfWeek === 6;
     const today = isToday(date);
     const absence = getAbsenceForDay(collab.id, date);
-    const chantiers = weekend ? [] : getChantiersForDay(collab.id, date);
+    const items = weekend ? [] : getChantiersWithInt(collab.id, date);
     const st = isST(collab);
 
     return (
@@ -128,37 +143,40 @@ export function PlanningScreen() {
         key={idx}
         style={[
           styles.cell,
-          { width: colW, height: ROW_H },
+          { width: colW },
           weekend && styles.weekendCell,
           today && styles.todayCell,
           st && !weekend && !today && styles.cellST,
         ]}
       >
         {isCompact ? (
-          // Vue compacte : barre colorée
+          // Vue compacte : barres colorées par chantier
           absence ? (
             <View style={[styles.compactBar, { backgroundColor: ABSENCE_COLORS[absence.type] ?? COLORS.textSecondary }]} />
-          ) : chantiers.length > 0 ? (
+          ) : items.length > 0 ? (
             <View style={styles.compactBars}>
-              {chantiers.slice(0, 2).map((ch, ci) => (
-                <View key={ci} style={[styles.compactBar, { backgroundColor: STATUS_COLORS[ch.statut] ?? COLORS.secondary, flex: 1 }]} />
+              {items.slice(0, 2).map(({ ch }, ci) => (
+                <View key={ci} style={[styles.compactBar, { backgroundColor: getChantierColor(ch.id), flex: 1 }]} />
               ))}
             </View>
           ) : null
         ) : (
-          // Vue semaine : blocs avec texte
+          // Vue semaine : blocs avec texte complet
           absence ? (
             <View style={[styles.absenceBlock, { backgroundColor: ABSENCE_COLORS[absence.type] ?? COLORS.textSecondary }]}>
-              <Text style={styles.absenceText} numberOfLines={2}>{absence.type}</Text>
+              <Text style={styles.absenceText}>{absence.type}</Text>
             </View>
-          ) : chantiers.length > 0 ? (
+          ) : items.length > 0 ? (
             <View style={styles.chantierStack}>
-              {chantiers.slice(0, 2).map((ch, ci) => (
-                <View key={ci} style={[styles.chantierBlock, { backgroundColor: STATUS_COLORS[ch.statut] ?? COLORS.secondary }]}>
-                  <Text style={styles.chantierText} numberOfLines={1}>{ch.nom}</Text>
+              {items.slice(0, 3).map(({ ch, int }, ci) => (
+                <View key={ci} style={[styles.chantierBlock, { backgroundColor: getChantierColor(ch.id) }]}>
+                  <Text style={styles.chantierNom}>{ch.nom}</Text>
+                  {int.nom ? (
+                    <Text style={styles.chantierIntNom}>{int.nom}</Text>
+                  ) : null}
                 </View>
               ))}
-              {chantiers.length > 2 && <Text style={styles.moreText}>+{chantiers.length - 2}</Text>}
+              {items.length > 3 && <Text style={styles.moreText}>+{items.length - 3}</Text>}
             </View>
           ) : null
         )}
@@ -276,12 +294,8 @@ export function PlanningScreen() {
       {/* Légende */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS['En cours'] }]} />
-          <Text style={styles.legendText}>En cours</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS['Planifié'] }]} />
-          <Text style={styles.legendText}>Planifié</Text>
+          <View style={[styles.legendDot, { backgroundColor: CHANTIER_PALETTE[0] }]} />
+          <Text style={styles.legendText}>Chantier (couleur unique)</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: COLORS.absenceCP }]} />
@@ -289,7 +303,7 @@ export function PlanningScreen() {
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: COLORS.soustraitantAccent }]} />
-          <Text style={styles.legendText}>ST</Text>
+          <Text style={styles.legendText}>Sous-traitant</Text>
         </View>
       </View>
     </View>
@@ -375,22 +389,24 @@ const styles = StyleSheet.create({
   },
   rowST: { backgroundColor: COLORS.soustraitantPlanningBg },
 
-  // Cellules
+  // Cellules — hauteur dynamique (minHeight au lieu de height fixe)
   cell: {
     borderRightWidth: 1, borderRightColor: COLORS.border,
-    padding: 2, justifyContent: 'center',
+    padding: 3, justifyContent: 'flex-start',
+    minHeight: ROW_H,
   },
   weekendCell: { backgroundColor: COLORS.weekendBg },
   todayCell: { backgroundColor: COLORS.todayBg },
   cellST: { backgroundColor: '#FEF0E0' },
 
-  // Semaine — blocs texte
-  absenceBlock: { flex: 1, borderRadius: 3, padding: 3, justifyContent: 'center' },
-  absenceText: { color: '#fff', fontSize: 8, fontWeight: '700', textAlign: 'center' },
-  chantierStack: { flex: 1, gap: 2 },
-  chantierBlock: { borderRadius: 3, paddingHorizontal: 3, paddingVertical: 2 },
-  chantierText: { color: '#fff', fontSize: 8, fontWeight: '600' },
-  moreText: { fontSize: 8, color: COLORS.textSecondary, textAlign: 'center' },
+  // Semaine — blocs avec texte complet (pas de numberOfLines)
+  absenceBlock: { borderRadius: 4, padding: 4, justifyContent: 'center', minHeight: 30 },
+  absenceText: { color: '#fff', fontSize: 9, fontWeight: '700', textAlign: 'center' },
+  chantierStack: { gap: 3 },
+  chantierBlock: { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 5 },
+  chantierNom: { color: '#fff', fontSize: 9, fontWeight: '700', lineHeight: 13 },
+  chantierIntNom: { color: 'rgba(255,255,255,0.9)', fontSize: 8, fontWeight: '500', lineHeight: 12, marginTop: 2 },
+  moreText: { fontSize: 8, color: COLORS.textSecondary, textAlign: 'center', paddingTop: 2 },
 
   // Compact — barres colorées
   compactBar: { flex: 1, borderRadius: 2, margin: 1 },
