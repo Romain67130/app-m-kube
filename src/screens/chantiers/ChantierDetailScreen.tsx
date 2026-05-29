@@ -2,8 +2,6 @@ import React, { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, TextInput, Linking,
 } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import * as Sharing from 'expo-sharing';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -16,10 +14,7 @@ import { getAllCollaborateurs } from '../../storage/collaborateurs';
 import {
   getInterventionsForChantier, createIntervention, updateIntervention, deleteIntervention,
 } from '../../storage/interventions';
-import {
-  getDocumentsForChantier, addDocument, deleteDocument,
-} from '../../storage/documents';
-import { Chantier, Collaborateur, AvancementUpdate, Intervention, ChantierDocument } from '../../types';
+import { Chantier, Collaborateur, AvancementUpdate, Intervention } from '../../types';
 import { COLORS, STATUS_COLORS } from '../../constants/colors';
 import { useMode } from '../../context/ModeContext';
 import { Card } from '../../components/Card';
@@ -50,25 +45,22 @@ export function ChantierDetailScreen({ route, navigation }: any) {
   const [editingIntId, setEditingIntId] = useState<string | null>(null);
   const [intNom, setIntNom] = useState('');
   const [intNotes, setIntNotes] = useState('');
-  const [documents, setDocuments] = useState<ChantierDocument[]>([]);
 
   const load = useCallback(async () => {
     const ch = await getChantierById(chantierId);
     if (!ch) return;
     setChantier(ch);
     setNotes(ch.notes);
-    const [colls, all, hist, ints, docs] = await Promise.all([
+    const [colls, all, hist, ints] = await Promise.all([
       getCollaborateursForChantier(chantierId),
       getAllCollaborateurs(),
       getAvancementHistory(chantierId),
       getInterventionsForChantier(chantierId),
-      getDocumentsForChantier(chantierId),
     ]);
     setCollaborateurs(colls);
     setAllCollabs(all);
     setHistory(hist);
     setInterventions(ints);
-    setDocuments(docs);
   }, [chantierId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -181,58 +173,6 @@ export function ChantierDetailScreen({ route, navigation }: any) {
     return c ? `${c.prenom} ${c.nom}` : id;
   };
 
-  // ─── Documents ────────────────────────────────────────────────────────────
-
-  const formatSize = (bytes?: number) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return `${bytes} o`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-  };
-
-  const getDocIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return 'image-outline';
-    if (mimeType === 'application/pdf') return 'document-text-outline';
-    return 'attach-outline';
-  };
-
-  const pickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
-      if (result.canceled) return;
-      const file = result.assets[0];
-      if (!file?.uri) {
-        Alert.alert('Erreur', 'Fichier invalide — URI manquante.');
-        return;
-      }
-      await addDocument(chantierId, file.name, file.uri, file.mimeType ?? 'application/octet-stream', file.size);
-      load();
-    } catch (e: any) {
-      Alert.alert('Erreur ajout document', String(e?.message ?? e));
-    }
-  };
-
-  const openDocument = async (doc: ChantierDocument) => {
-    try {
-      const available = await Sharing.isAvailableAsync();
-      if (available) {
-        await Sharing.shareAsync(doc.uri, { mimeType: doc.mimeType, dialogTitle: doc.nom });
-      } else {
-        Alert.alert('Non disponible', 'L\'ouverture de fichiers n\'est pas disponible sur cet appareil.');
-      }
-    } catch (e) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir ce document.');
-    }
-  };
-
-  const confirmDeleteDocument = (doc: ChantierDocument) => {
-    Alert.alert('Supprimer le document', `Supprimer "${doc.nom}" ?`, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Supprimer', style: 'destructive', onPress: async () => { await deleteDocument(doc.id); load(); } },
-    ]);
-  };
-
-  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -388,51 +328,6 @@ export function ChantierDetailScreen({ route, navigation }: any) {
           chantier.notes
             ? <Text style={styles.notesText}>{chantier.notes}</Text>
             : <Text style={styles.emptyText}>Appuyer sur ✏ pour ajouter des notes</Text>
-        )}
-      </Card>
-
-      {/* Documents */}
-      <Card>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Documents</Text>
-          {isAdmin && (
-            <TouchableOpacity onPress={pickDocument} style={styles.docAddBtn}>
-              <Ionicons name="add-circle-outline" size={24} color={COLORS.secondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {documents.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {isAdmin ? 'Appuyez sur + pour ajouter plans, devis…' : 'Aucun document'}
-          </Text>
-        ) : (
-          documents.map((doc) => (
-            <TouchableOpacity
-              key={doc.id}
-              style={styles.docRow}
-              onPress={() => openDocument(doc)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.docIconWrap}>
-                <Ionicons name={getDocIcon(doc.mimeType) as any} size={24} color={COLORS.secondary} />
-              </View>
-              <View style={styles.docInfo}>
-                <Text style={styles.docNom} numberOfLines={2}>{doc.nom}</Text>
-                <Text style={styles.docMeta}>
-                  {doc.createdAt.slice(0, 10)}{doc.taille ? `  ·  ${formatSize(doc.taille)}` : ''}
-                </Text>
-              </View>
-              <View style={styles.docActions}>
-                <Ionicons name="open-outline" size={18} color={COLORS.textSecondary} />
-                {isAdmin && (
-                  <TouchableOpacity onPress={() => confirmDeleteDocument(doc)} style={styles.docDeleteBtn}>
-                    <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))
         )}
       </Card>
 
@@ -659,15 +554,6 @@ const styles = StyleSheet.create({
   intNotesText: { fontSize: 12, color: COLORS.textSecondary, fontStyle: 'italic', marginTop: 3, lineHeight: 17 },
   intActions: { flexDirection: 'row', gap: 4 },
   intActionBtn: { padding: 4 },
-  // Documents
-  docAddBtn: { padding: 2 },
-  docRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 10 },
-  docIconWrap: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#EEF4FF', justifyContent: 'center', alignItems: 'center' },
-  docInfo: { flex: 1 },
-  docNom: { fontSize: 13, fontWeight: '600', color: COLORS.text, lineHeight: 18 },
-  docMeta: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
-  docActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  docDeleteBtn: { padding: 4 },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: COLORS.danger, borderRadius: 12, paddingVertical: 14, marginBottom: 16 },
   deleteBtnText: { color: COLORS.danger, fontWeight: '700', fontSize: 15 },
   histRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 2 },
