@@ -201,10 +201,14 @@ export function ChantierDetailScreen({ route, navigation }: any) {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
       if (result.canceled) return;
       const file = result.assets[0];
+      if (!file?.uri) {
+        Alert.alert('Erreur', 'Fichier invalide — URI manquante.');
+        return;
+      }
       await addDocument(chantierId, file.name, file.uri, file.mimeType ?? 'application/octet-stream', file.size);
       load();
-    } catch (e) {
-      Alert.alert('Erreur', 'Impossible d\'ajouter ce document.');
+    } catch (e: any) {
+      Alert.alert('Erreur ajout document', String(e?.message ?? e));
     }
   };
 

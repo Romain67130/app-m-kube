@@ -12,7 +12,7 @@ function uuid(): string {
 
 /** Dossier persistant pour les documents d'un chantier */
 function chantierDir(chantierId: string): string {
-  return `${FileSystem.documentDirectory}mkube_docs/${chantierId}/`;
+  return `${FileSystem.documentDirectory ?? ''}mkube_docs/${chantierId}/`;
 }
 
 export async function getDocumentsForChantier(chantierId: string): Promise<ChantierDocument[]> {
@@ -22,8 +22,9 @@ export async function getDocumentsForChantier(chantierId: string): Promise<Chant
 }
 
 /**
- * Copie le fichier temporaire (uri du picker) dans le stockage permanent de l'app,
- * enregistre les métadonnées et retourne le document créé.
+ * Enregistre un document.
+ * Tente de copier vers le stockage permanent de l'app ;
+ * si la copie échoue, conserve l'URI temporaire du picker (déjà dans le cache local de l'app).
  */
 export async function addDocument(
   chantierId: string,
@@ -32,20 +33,29 @@ export async function addDocument(
   mimeType: string,
   taille?: number,
 ): Promise<ChantierDocument> {
-  const dir = chantierDir(chantierId);
-  await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-
-  // Évite les collisions de noms
   const id = uuid();
-  const ext = nom.includes('.') ? nom.split('.').pop() : '';
-  const destUri = `${dir}${id}${ext ? '.' + ext : ''}`;
-  await FileSystem.copyAsync({ from: tempUri, to: destUri });
+  let finalUri = tempUri; // fallback : URI cache du picker
+
+  try {
+    const dir = chantierDir(chantierId);
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    // Sanitise l'extension (retire espaces et caractères spéciaux)
+    const rawExt = nom.includes('.') ? (nom.split('.').pop() ?? '') : '';
+    const ext = rawExt.replace(/[^a-zA-Z0-9]/g, '');
+    const destUri = `${dir}${id}${ext ? '.' + ext : ''}`;
+    await FileSystem.copyAsync({ from: tempUri, to: destUri });
+    finalUri = destUri;
+  } catch (copyErr) {
+    // La copie a échoué, on garde l'URI temporaire — le fichier reste accessible
+    // tant que le cache de l'app n'est pas vidé
+    console.warn('[Documents] Copie permanente échouée, URI temporaire conservée :', copyErr);
+  }
 
   const doc: ChantierDocument = {
     id,
     chantierId,
     nom,
-    uri: destUri,
+    uri: finalUri,
     mimeType,
     taille,
     createdAt: format(new Date(), 'yyyy-MM-dd HH:mm'),
@@ -65,7 +75,7 @@ export async function deleteDocument(id: string): Promise<void> {
   await saveDB('documents');
 }
 
-/** Supprime tous les documents d'un chantier (utile lors de la suppression du chantier) */
+/** Supprime tous les documents d'un chantier (lors de la suppression du chantier) */
 export async function deleteDocumentsForChantier(chantierId: string): Promise<void> {
   try {
     await FileSystem.deleteAsync(chantierDir(chantierId), { idempotent: true });
