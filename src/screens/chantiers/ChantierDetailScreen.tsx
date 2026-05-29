@@ -44,6 +44,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
   const [intFinISO, setIntFinISO] = useState('');
   const [editingIntId, setEditingIntId] = useState<string | null>(null);
   const [intNom, setIntNom] = useState('');
+  const [intNotes, setIntNotes] = useState('');
 
   const load = useCallback(async () => {
     const ch = await getChantierById(chantierId);
@@ -112,7 +113,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
   const resetIntForm = () => {
     setIntCollabs([]); setIntDebutDisplay(''); setIntDebutISO('');
     setIntFinDisplay(''); setIntFinISO(''); setEditingIntId(null);
-    setIntNom('');
+    setIntNom(''); setIntNotes('');
   };
 
   const startEditIntervention = (int: Intervention) => {
@@ -123,6 +124,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
     setIntFinDisplay(isoToDisplay(int.dateFin));
     setIntFinISO(int.dateFin);
     setIntNom(int.nom ?? '');
+    setIntNotes(int.notes ?? '');
     setShowAddIntervention(true);
   };
 
@@ -141,6 +143,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
         dateDebut: intDebutISO,
         dateFin: intFinISO,
         nom: intNom.trim() || undefined,
+        notes: intNotes.trim(),
       });
     } else {
       await Promise.all(
@@ -148,7 +151,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
           createIntervention({
             chantierId, collaborateurId: collabId,
             dateDebut: intDebutISO, dateFin: intFinISO,
-            nom: intNom.trim() || undefined, notes: '',
+            nom: intNom.trim() || undefined, notes: intNotes.trim(),
           })
         )
       );
@@ -383,6 +386,16 @@ export function ChantierDetailScreen({ route, navigation }: any) {
               value={intNom}
               onChangeText={setIntNom}
               placeholder="ex: Pose des pannes, Finitions…"
+              returnKeyType="next"
+            />
+            <Text style={styles.formLabel}>Commentaire (optionnel)</Text>
+            <TextInput
+              style={[styles.formInput, styles.formInputMultiline]}
+              value={intNotes}
+              onChangeText={setIntNotes}
+              placeholder="Remarques, consignes, matériel nécessaire…"
+              multiline
+              numberOfLines={3}
               returnKeyType="done"
             />
             <TouchableOpacity style={styles.addBtn} onPress={saveIntervention}>
@@ -402,6 +415,7 @@ export function ChantierDetailScreen({ route, navigation }: any) {
                 <Text style={styles.intDates}>
                   {format(new Date(int.dateDebut), 'dd MMM', { locale: fr })} → {format(new Date(int.dateFin), 'dd MMM yyyy', { locale: fr })}
                 </Text>
+                {int.notes ? <Text style={styles.intNotesText}>{int.notes}</Text> : null}
               </View>
               {isAdmin && (
                 <View style={styles.intActions}>
@@ -492,6 +506,7 @@ const styles = StyleSheet.create({
   addForm: { backgroundColor: COLORS.background, borderRadius: 10, padding: 12, marginBottom: 12, gap: 6 },
   formLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, marginTop: 6 },
   formInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, backgroundColor: COLORS.surface },
+  formInputMultiline: { height: 70, textAlignVertical: 'top' },
   collabPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 4 },
   collabChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
   collabChipActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
@@ -506,6 +521,7 @@ const styles = StyleSheet.create({
   intCollab: { fontSize: 14, fontWeight: '600', color: COLORS.text },
   intNomText: { fontSize: 13, fontWeight: '600', color: COLORS.secondary, marginTop: 2 },
   intDates: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  intNotesText: { fontSize: 12, color: COLORS.textSecondary, fontStyle: 'italic', marginTop: 3, lineHeight: 17 },
   intActions: { flexDirection: 'row', gap: 4 },
   intActionBtn: { padding: 4 },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: COLORS.danger, borderRadius: 12, paddingVertical: 14, marginBottom: 16 },
