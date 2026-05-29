@@ -11,8 +11,8 @@ import {
 import { fr } from 'date-fns/locale';
 import { getAllCollaborateurs } from '../../storage/collaborateurs';
 import { getAbsencesForPeriod } from '../../storage/absences';
-import { getChantiersForCollaborateurViaInterventions, getInterventionForDay } from '../../storage/interventions';
-import { Collaborateur, Chantier, Absence, Intervention } from '../../types';
+import { getChantierItemsForDay } from '../../storage/interventions';
+import { Collaborateur, Absence, Intervention } from '../../types';
 import { COLORS, ABSENCE_COLORS } from '../../constants/colors';
 
 type ViewMode = 'week' | 'month' | '2months';
@@ -46,7 +46,6 @@ export function PlanningScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [baseDate, setBaseDate] = useState(new Date());
   const [collaborateurs, setCollaborateurs] = useState<Collaborateur[]>([]);
-  const [chantiersByCollab, setChantiersByCollab] = useState<Map<string, Chantier[]>>(new Map());
   const [absences, setAbsences] = useState<Absence[]>([]);
 
   // Calcul des dates selon le mode
@@ -65,18 +64,12 @@ export function PlanningScreen() {
   const finStr = format(dates[dates.length - 1], 'yyyy-MM-dd');
 
   const load = useCallback(async () => {
-    const collabs = await getAllCollaborateurs();
+    const [collabs, abs] = await Promise.all([
+      getAllCollaborateurs(),
+      getAbsencesForPeriod(debutStr, finStr),
+    ]);
     setCollaborateurs(collabs);
-    const abs = await getAbsencesForPeriod(debutStr, finStr);
     setAbsences(abs);
-    const map = new Map<string, Chantier[]>();
-    await Promise.all(
-      collabs.map(async (c) => {
-        const ch = await getChantiersForCollaborateurViaInterventions(c.id, debutStr, finStr);
-        map.set(c.id, ch);
-      })
-    );
-    setChantiersByCollab(new Map(map));
   }, [debutStr, finStr]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -110,15 +103,8 @@ export function PlanningScreen() {
       return a.collaborateurId === collabId && a.dateDebut <= d && a.dateFin >= d;
     });
 
-  const getChantiersWithInt = (collabId: string, date: Date): { ch: Chantier; int: Intervention }[] => {
-    const d = format(date, 'yyyy-MM-dd');
-    return (chantiersByCollab.get(collabId) ?? [])
-      .reduce<{ ch: Chantier; int: Intervention }[]>((acc, ch) => {
-        const int = getInterventionForDay(collabId, ch.id, d);
-        if (int) acc.push({ ch, int });
-        return acc;
-      }, []);
-  };
+  const getChantiersWithInt = (collabId: string, date: Date) =>
+    getChantierItemsForDay(collabId, format(date, 'yyyy-MM-dd'));
 
   const initiales = (c: Collaborateur) => `${c.prenom[0]}${c.nom[0]}`.toUpperCase();
   const isST = (c: Collaborateur) => c.type === 'sous-traitant';

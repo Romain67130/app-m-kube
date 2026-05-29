@@ -1,5 +1,5 @@
 import { getDB, saveDB } from './database';
-import { Intervention } from '../types';
+import { Intervention, Chantier } from '../types';
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -66,6 +66,29 @@ export async function getChantiersForCollaborateurViaInterventions(
 
 export function getAllInterventions(): Intervention[] {
   return getDB().interventions;
+}
+
+/**
+ * Retourne tous les chantiers (+ intervention associée) actifs pour un collaborateur
+ * à une date précise. Lecture directe du cache mémoire — aucun état intermédiaire.
+ */
+export function getChantierItemsForDay(
+  collaborateurId: string,
+  date: string,
+): { ch: Chantier; int: Intervention }[] {
+  const db = getDB();
+  const result: { ch: Chantier; int: Intervention }[] = [];
+  for (const int of db.interventions) {
+    if (
+      int.collaborateurId === collaborateurId &&
+      int.dateDebut <= date &&
+      int.dateFin >= date
+    ) {
+      const ch = db.chantiers.find((c) => c.id === int.chantierId && c.statut !== 'Annulé');
+      if (ch) result.push({ ch, int });
+    }
+  }
+  return result;
 }
 
 export function getInterventionForDay(
