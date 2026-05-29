@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,7 +42,7 @@ const getChantierColor = (chantierId: string): string => {
   return CHANTIER_PALETTE[Math.abs(h) % CHANTIER_PALETTE.length];
 };
 
-export function PlanningScreen() {
+export function PlanningScreen({ navigation }: any) {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [baseDate, setBaseDate] = useState(new Date());
   const [collaborateurs, setCollaborateurs] = useState<Collaborateur[]>([]);
@@ -136,18 +136,37 @@ export function PlanningScreen() {
         ]}
       >
         {isCompact ? (
-          // Vue compacte : barres colorées par chantier
+          // Vue compacte : barres colorées cliquables
           absence ? (
             <View style={[styles.compactBar, { backgroundColor: ABSENCE_COLORS[absence.type] ?? COLORS.textSecondary }]} />
           ) : items.length > 0 ? (
-            <View style={styles.compactBars}>
+            <TouchableOpacity
+              style={styles.compactBars}
+              onPress={() => {
+                if (items.length === 1) {
+                  navigation.navigate('ChantierDetail', { chantierId: items[0].ch.id });
+                } else {
+                  Alert.alert(
+                    format(date, 'dd MMM', { locale: fr }),
+                    'Choisir un chantier',
+                    [
+                      ...items.map(({ ch }) => ({
+                        text: ch.nom,
+                        onPress: () => navigation.navigate('ChantierDetail', { chantierId: ch.id }),
+                      })),
+                      { text: 'Annuler', style: 'cancel' as const },
+                    ],
+                  );
+                }
+              }}
+            >
               {items.slice(0, 2).map(({ ch }, ci) => (
                 <View key={ci} style={[styles.compactBar, { backgroundColor: getChantierColor(ch.id), flex: 1 }]} />
               ))}
-            </View>
+            </TouchableOpacity>
           ) : null
         ) : (
-          // Vue semaine : blocs avec texte complet
+          // Vue semaine : blocs avec texte complet, chacun cliquable
           absence ? (
             <View style={[styles.absenceBlock, { backgroundColor: ABSENCE_COLORS[absence.type] ?? COLORS.textSecondary }]}>
               <Text style={styles.absenceText}>{absence.type}</Text>
@@ -155,12 +174,17 @@ export function PlanningScreen() {
           ) : items.length > 0 ? (
             <View style={styles.chantierStack}>
               {items.slice(0, 3).map(({ ch, int }, ci) => (
-                <View key={ci} style={[styles.chantierBlock, { backgroundColor: getChantierColor(ch.id) }]}>
+                <TouchableOpacity
+                  key={ci}
+                  style={[styles.chantierBlock, { backgroundColor: getChantierColor(ch.id) }]}
+                  onPress={() => navigation.navigate('ChantierDetail', { chantierId: ch.id })}
+                  activeOpacity={0.75}
+                >
                   <Text style={styles.chantierNom}>{ch.nom}</Text>
                   {int.nom ? (
                     <Text style={styles.chantierIntNom}>{int.nom}</Text>
                   ) : null}
-                </View>
+                </TouchableOpacity>
               ))}
               {items.length > 3 && <Text style={styles.moreText}>+{items.length - 3}</Text>}
             </View>
