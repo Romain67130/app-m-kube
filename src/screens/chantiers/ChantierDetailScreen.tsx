@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
-  getChantierById, updateAvancement, getCollaborateursForChantier,
+  getChantierById, updateChantier, updateAvancement, getCollaborateursForChantier,
   setCollaborateursForChantier, getAvancementHistory, deleteChantier,
 } from '../../storage/chantiers';
 import { getAllCollaborateurs } from '../../storage/collaborateurs';
@@ -30,9 +30,10 @@ export function ChantierDetailScreen({ route, navigation }: any) {
   const [allCollabs, setAllCollabs] = useState<Collaborateur[]>([]);
   const [history, setHistory] = useState<AvancementUpdate[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
-  const [avancement, setAvancement] = useState(0);
   const [notes, setNotes] = useState('');
-  const [editingAvancement, setEditingAvancement] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editingIntAvancementId, setEditingIntAvancementId] = useState<string | null>(null);
+  const [editIntPct, setEditIntPct] = useState(0);
   const [showAddIntervention, setShowAddIntervention] = useState(false);
   const [intCollabs, setIntCollabs] = useState<string[]>([]);
   const [intDebutDisplay, setIntDebutDisplay] = useState('');
@@ -46,7 +47,6 @@ export function ChantierDetailScreen({ route, navigation }: any) {
     const ch = await getChantierById(chantierId);
     if (!ch) return;
     setChantier(ch);
-    setAvancement(ch.avancement);
     setNotes(ch.notes);
     const [colls, all, hist, ints] = await Promise.all([
       getCollaborateursForChantier(chantierId),
@@ -71,9 +71,22 @@ export function ChantierDetailScreen({ route, navigation }: any) {
     ]);
   };
 
-  const saveAvancement = async () => {
-    await updateAvancement(chantierId, avancement, notes);
-    setEditingAvancement(false);
+  const saveIntAvancement = async () => {
+    if (!editingIntAvancementId) return;
+    await updateIntervention(editingIntAvancementId, { avancement: editIntPct });
+    // Recalcule l'avancement global = moyenne des interventions
+    const allInts = await getInterventionsForChantier(chantierId);
+    const avg = allInts.length > 0
+      ? Math.round(allInts.reduce((sum, i) => sum + (i.avancement ?? 0), 0) / allInts.length)
+      : 0;
+    await updateChantier(chantierId, { avancement: avg });
+    setEditingIntAvancementId(null);
+    load();
+  };
+
+  const saveNotes = async () => {
+    await updateChantier(chantierId, { notes });
+    setEditingNotes(false);
     load();
   };
 
@@ -184,32 +197,95 @@ export function ChantierDetailScreen({ route, navigation }: any) {
         </View>
       </View>
 
-      {/* Avancement */}
+      {/* Avancement par intervention */}
       <Card>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Avancement</Text>
-          <TouchableOpacity onPress={() => setEditingAvancement(!editingAvancement)}>
-            <Ionicons name={editingAvancement ? 'close' : 'pencil-outline'} size={20} color={COLORS.secondary} />
+          <Text style={styles.avanGlobal}>Global : {chantier.avancement}%</Text>
+        </View>
+        <ProgressBar value={chantier.avancement} height={8} showLabel={false} />
+
+        <View style={styles.intAvanList}>
+          {interventions.length === 0 ? (
+            <Text style={styles.emptyText}>Ajoutez des interventions pour suivre l'avancement</Text>
+          ) : (
+            interventions.map((int, idx) => {
+              const pct = int.avancement ?? 0;
+              const isEditing = editingIntAvancementId === int.id;
+              return (
+                <View key={int.id} style={[styles.intAvanRow, idx > 0 && styles.intAvanRowBorder]}>
+                  {/* Ligne : nom + % + bouton édition */}
+                  <View style={styles.intAvanHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.intAvanCollab}>{getCollabName(int.collaborateurId)}</Text>
+                      {int.nom ? <Text style={styles.intAvanNom}>{int.nom}</Text> : null}
+                    </View>
+                    <TouchableOpacity
+                      style={styles.intAvanEditBtn}
+                      onPress={() => {
+                        if (isEditing) { setEditingIntAvancementId(null); }
+                        else { setEditingIntAvancementId(int.id); setEditIntPct(pct); }
+                      }}
+                    >
+                      <Ionicons name={isEditing ? 'close' : 'pencil-outline'} size={18} color={COLORS.secondary} />
+                    </TouchableOpacity>
+                  </View>
+                  {/* Barre de progression */}
+                  <ProgressBar value={pct} height={10} />
+                  {/* Édition inline */}
+                  {isEditing && (
+                    <View style={styles.intAvanEdit}>
+                      <Text style={styles.sliderLabel}>{editIntPct}%</Text>
+                      <View style={styles.pctRow}>
+                        {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((v) => (
+                          <TouchableOpacity
+                            key={v}
+                            style={[styles.pctBtn, editIntPct === v && styles.pctBtnActive]}
+                            onPress={() => setEditIntPct(v)}
+                          >
+                            <Text style={[styles.pctBtnText, editIntPct === v && styles.pctBtnTextActive]}>{v}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <TouchableOpacity style={styles.saveBtn} onPress={saveIntAvancement}>
+                        <Text style={styles.saveBtnText}>Enregistrer</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </Card>
+
+      {/* Notes terrain */}
+      <Card>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Notes terrain</Text>
+          <TouchableOpacity onPress={() => { setEditingNotes(!editingNotes); setNotes(chantier.notes); }}>
+            <Ionicons name={editingNotes ? 'close' : 'pencil-outline'} size={20} color={COLORS.secondary} />
           </TouchableOpacity>
         </View>
-        <ProgressBar value={chantier.avancement} height={12} />
-        {editingAvancement && (
+        {editingNotes ? (
           <View style={styles.editSection}>
-            <Text style={styles.sliderLabel}>{avancement}%</Text>
-            <View style={styles.pctRow}>
-              {[0,10,20,30,40,50,60,70,80,90,100].map((v) => (
-                <TouchableOpacity key={v} style={[styles.pctBtn, avancement === v && styles.pctBtnActive]} onPress={() => setAvancement(v)}>
-                  <Text style={[styles.pctBtnText, avancement === v && styles.pctBtnTextActive]}>{v}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TextInput style={styles.notesInput} value={notes} onChangeText={setNotes} placeholder="Notes terrain..." multiline numberOfLines={3} />
-            <TouchableOpacity style={styles.saveBtn} onPress={saveAvancement}>
-              <Text style={styles.saveBtnText}>Mettre à jour</Text>
+            <TextInput
+              style={styles.notesInput}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Notes terrain, remarques équipe…"
+              multiline
+              numberOfLines={4}
+            />
+            <TouchableOpacity style={styles.saveBtn} onPress={saveNotes}>
+              <Text style={styles.saveBtnText}>Enregistrer les notes</Text>
             </TouchableOpacity>
           </View>
+        ) : (
+          chantier.notes
+            ? <Text style={styles.notesText}>{chantier.notes}</Text>
+            : <Text style={styles.emptyText}>Appuyer sur ✏ pour ajouter des notes</Text>
         )}
-        {chantier.notes ? <Text style={styles.notesText}>{chantier.notes}</Text> : null}
       </Card>
 
       {/* Équipe */}
@@ -366,17 +442,27 @@ const styles = StyleSheet.create({
   dates: { fontSize: 13, color: COLORS.textSecondary },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  avanGlobal: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
   editSection: { marginTop: 12, gap: 10 },
-  sliderLabel: { fontSize: 24, fontWeight: '800', color: COLORS.primary, textAlign: 'center' },
+  sliderLabel: { fontSize: 22, fontWeight: '800', color: COLORS.primary, textAlign: 'center' },
   pctRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
   pctBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background },
   pctBtnActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
   pctBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
   pctBtnTextActive: { color: '#fff' },
-  notesInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, backgroundColor: COLORS.background, textAlignVertical: 'top', height: 80 },
+  notesInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, backgroundColor: COLORS.background, textAlignVertical: 'top', height: 90 },
   saveBtn: { backgroundColor: COLORS.secondary, borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '700' },
-  notesText: { fontSize: 13, color: COLORS.textSecondary, marginTop: 10, fontStyle: 'italic' },
+  notesText: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, fontStyle: 'italic' },
+  // Avancement par intervention
+  intAvanList: { marginTop: 12, gap: 0 },
+  intAvanRow: { paddingVertical: 10, gap: 6 },
+  intAvanRowBorder: { borderTopWidth: 1, borderTopColor: COLORS.border },
+  intAvanHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  intAvanCollab: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  intAvanNom: { fontSize: 12, color: COLORS.secondary, fontWeight: '600', marginTop: 1 },
+  intAvanEditBtn: { padding: 4, marginLeft: 8 },
+  intAvanEdit: { marginTop: 8, gap: 8, backgroundColor: COLORS.background, borderRadius: 8, padding: 10 },
   collabRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10 },
   collabAffecte: { backgroundColor: '#F0F6FF', marginHorizontal: -4, paddingHorizontal: 4, borderRadius: 8 },
   checkbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },

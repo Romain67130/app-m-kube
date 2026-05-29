@@ -64,6 +64,7 @@ export interface Intervention {
   dateDebut: string;
   dateFin: string;
   nom?: string;
+  avancement?: number;
   notes: string;
 }
 
